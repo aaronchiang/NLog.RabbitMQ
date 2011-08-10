@@ -1,0 +1,13 @@
+﻿<Window x:Class="DemoApp.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="RabbitMQ Logging" Height="177" Width="525">
+    <StackPanel Height="134">
+		<Button Name="Trace" Click="Button_Click">Trace</Button>
+		<Button Name="Debug" Click="Button_Click">Debug</Button>
+		<Button Name="Info" Click="Button_Click">Info</Button>
+		<Button Name="Warn" Click="Button_Click">Warn</Button>
+		<Button Name="Error" Click="Button_Click">Error</Button>
+		<Button Name="Fatal" Click="Button_Click">Fatal</Button>
+	</StackPanel>
+</Window>
