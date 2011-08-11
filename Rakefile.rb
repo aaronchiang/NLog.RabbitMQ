@@ -82,9 +82,9 @@ task :publish => [:"env:release", :nr_nuget_push]
 desc "publishes (pushes) the nuget package 'NLog.Targets.RabbitMQ'"
 nugetpush :nr_nuget_push do |nuget|
   nuget.command = "#{COMMANDS[:nuget]}"
-  nuget.package = "#{File.join(FOLDERS[:nuget], PROJECTS[:nr][:nuget_key] + BUILD_VERSION + '.nupkg')}"
+  nuget.package = "#{File.join(FOLDERS[:nuget], PROJECTS[:nr][:nuget_key] + "." + BUILD_VERSION + '.nupkg')}"
 # nuget.apikey = "...."
-  nuget.source = #{URIS[:nuget_offical]}
+  nuget.source = URIS[:nuget_offical]
   nuget.create_only = false
 end
 
