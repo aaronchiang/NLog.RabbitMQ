@@ -62,7 +62,7 @@ nuspec :nr_nuspec do |nuspec|
   nuspec.language = "en-US"
   nuspec.licenseUrl = "http://www.apache.org/licenses/LICENSE-2.0" # TODO: set this for nuget generation
   nuspec.requireLicenseAcceptance = "false"
-  nuspec.dependency "RabbitMQ.Client", "2.6.1"
+  nuspec.dependency "RabbitMQ.Client", "[2.5.1]"
   nuspec.output_file = FILES[:nr][:nuspec]
   nuspec_copy(:nr, "#{PROJECTS[:nr][:id]}.{dll,xml}")
 end
