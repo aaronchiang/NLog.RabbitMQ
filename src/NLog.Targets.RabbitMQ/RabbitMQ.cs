@@ -1,8 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using NLog.Common;
-using NLog.Layouts;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Framing.v0_9_1;
 
@@ -15,6 +15,8 @@ namespace NLog.Targets
 		private IModel _Model;
 		private readonly Encoding _Encoding = Encoding.UTF8;
 		private readonly DateTime _Epoch = new DateTime(1970, 1, 1, 0, 0, 0, 0);
+		private readonly List<Tuple<byte[], IBasicProperties, string>> _UnsentMessages
+			= new List<Tuple<byte[], IBasicProperties, string>>(512);
 
 		#region Properties
 
@@ -55,7 +57,7 @@ namespace NLog.Targets
 			set { _Password = value; }
 		}
 
-		private uint _Port = 5672;
+		private ushort _Port = 5672;
 
 		/// <summary>
 		/// 	Gets or sets the port to use
@@ -63,7 +65,7 @@ namespace NLog.Targets
 		/// 	listening port).
 		/// 	The default is '5672'.
 		/// </summary>
-		public uint Port
+		public ushort Port
 		{
 			get { return _Port; }
 			set { _Port = value; }
@@ -130,30 +132,91 @@ namespace NLog.Targets
 		/// </summary>
 		public string AppId { get; set; }
 
+		private int _MaxBuffer = 10240;
+
+		/// <summary>
+		/// Gets or sets the maximum number of messages to save in the case
+		/// that the RabbitMQ instance goes down. Must be >= 1. Defaults to 10240.
+		/// </summary>
+		public int MaxBuffer
+		{
+			get { return _MaxBuffer; }
+			set { if (value > 0) _MaxBuffer = value; }
+		}
+
+		private ushort _heartBeatSeconds = 3;
+
+		/// <summary>
+		/// Gets or sets the number of heartbeat seconds to have for the RabbitMQ connection.
+		/// If the heartbeat times out, then the connection is closed (logically) and then
+		/// re-opened the next time a log message comes along.
+		/// </summary>
+		public ushort HeartBeatSeconds
+		{
+			get { return _heartBeatSeconds; }
+			set {  _heartBeatSeconds = value; }
+		}
+
+
 		#endregion
 
 		protected override void Write(AsyncLogEventInfo logEvent)
 		{
-			try
-			{
-				if (_Model == null)
-					StartConnection();
-			}
-			catch (Exception e)
-			{
-				InternalLogger.Error("problem setting up connection to rabbitmq: {0}", e.ToString());
-			}
-
-			if (_Model == null)
-				return;
-
 			var basicProperties = GetBasicProperties(logEvent);
 			var message = GetMessage(logEvent);
+			var routingKey = string.Format(_Topic, logEvent.LogEvent.Level.Name);
 
+			if (_Model == null || !_Model.IsOpen)
+				StartConnection();
+
+			if (_Model == null || !_Model.IsOpen)
+			{
+				AddUnsent(routingKey, basicProperties, message);
+				return;
+			}
+
+			try
+			{
+				CheckUnsent();
+				Publish(message, basicProperties, routingKey);
+			}
+			catch (IOException e)
+			{
+				InternalLogger.Error("Could not send to RabbitMQ instance! {0}", e.ToString());
+				AddUnsent(routingKey, basicProperties, message);
+				ShutdownAmqp(_Connection, new ShutdownEventArgs(ShutdownInitiator.Application, Constants.ChannelError, "Could not talk to RabbitMQ instance"));
+			}
+		}
+
+		private void AddUnsent(string routingKey, IBasicProperties basicProperties, byte[] message)
+		{
+			if (_UnsentMessages.Count < _MaxBuffer)
+				_UnsentMessages.Add(Tuple.Create(message, basicProperties, routingKey));
+			else
+				InternalLogger.Warn("MaxBuffer {0} filled. Ignoring message.", _MaxBuffer);
+		}
+
+		private void CheckUnsent()
+		{
+			var count = _UnsentMessages.Count;
+
+			for (var i = 0; i < count; i++)
+			{
+				var tuple = _UnsentMessages[i];
+				InternalLogger.Info("publishing unsent message: {0}.", tuple);
+				Publish(tuple.Item1, tuple.Item2, tuple.Item3);
+			}
+
+			if (count > 0) 
+				_UnsentMessages.Clear();
+		}
+
+		private void Publish(byte[] bytes, IBasicProperties basicProperties, string routingKey)
+		{
 			_Model.BasicPublish(_Exchange,
-								string.Format(_Topic, logEvent.LogEvent.Level.Name),
-								true, false, basicProperties,
-								message);
+			                    routingKey,
+			                    true, false, basicProperties,
+			                    bytes);
 		}
 
 		private byte[] GetMessage(AsyncLogEventInfo logEvent)
@@ -165,7 +228,8 @@ namespace NLog.Targets
 		private IBasicProperties GetBasicProperties(AsyncLogEventInfo loggingEvent)
 		{
 			var @event = loggingEvent.LogEvent;
-			var basicProperties = _Model.CreateBasicProperties();
+			
+			var basicProperties = new BasicProperties();
 			basicProperties.ContentEncoding = "utf8";
 			basicProperties.ContentType = "text/plain";
 			basicProperties.AppId = AppId ?? @event.LoggerName;
@@ -184,6 +248,9 @@ namespace NLog.Targets
 			StartConnection();
 		}
 
+		/// <summary>
+		/// Never throws
+		/// </summary>
 		private void StartConnection()
 		{
 			try
@@ -196,14 +263,14 @@ namespace NLog.Targets
 				{
 					InternalLogger.Error("could not create model", e);
 				}
+
+				if (_Model != null)
+					_Model.ExchangeDeclare(_Exchange, ExchangeType.Topic);
 			}
 			catch (Exception e)
 			{
 				InternalLogger.Error("could not connect to Rabbit instance", e);
 			}
-
-			if (_Model != null)
-				_Model.ExchangeDeclare(_Exchange, ExchangeType.Topic);
 		}
 
 		private ConnectionFactory GetConnectionFac()
@@ -214,43 +281,46 @@ namespace NLog.Targets
 				VirtualHost = VHost,
 				UserName = UserName,
 				Password = Password,
-				RequestedHeartbeat = 60,
-				Port = (int)Port
+				RequestedHeartbeat = HeartBeatSeconds,
+				Port = Port
 			};
 		}
-
 
 		private void ShutdownAmqp(IConnection connection, ShutdownEventArgs reason)
 		{
 			try
 			{
-				if (connection != null)
-				{
-					connection.ConnectionShutdown -= ShutdownAmqp;
-					connection.AutoClose = true;
-				}
-
-				if (_Model != null)
-				{
-					_Model.Close(Constants.ReplySuccess, "closing rabbitmq appender, shutting down logging");
-					_Model.Dispose();
-				}
+				if (_Model != null && _Model.IsOpen)
+					_Model.Close();
 			}
 			catch (Exception e)
 			{
 				InternalLogger.Error("could not close model", e);
 			}
 
-			_Connection = null;
-			_Model = null;
+			try
+			{
+				if (connection != null && connection.IsOpen)
+				{
+					connection.ConnectionShutdown -= ShutdownAmqp;
+					connection.Close(reason.ReplyCode, reason.ReplyText, 1000);
+					connection.Abort(1000); // you get 2 seconds to shut down!
+				}
+			}
+			catch (Exception e)
+			{
+				InternalLogger.Error("could not close connection", e);
+			}
 		}
+
+		// Dispose calls CloseTarget!
 
 		protected override void CloseTarget()
 		{
-			base.CloseTarget();
-
 			ShutdownAmqp(_Connection,
-						 new ShutdownEventArgs(ShutdownInitiator.Application, Constants.ReplySuccess, "closing appender"));
+			             new ShutdownEventArgs(ShutdownInitiator.Application, Constants.ReplySuccess, "closing appender"));
+			
+			base.CloseTarget();
 		}
 	}
 }
