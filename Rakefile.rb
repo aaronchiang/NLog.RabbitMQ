@@ -77,8 +77,6 @@ nugetpack :nr_nuget do |nuget|
    nuget.output      = "#{FOLDERS[:nuget]}"
 end
 
-task :publish => [:"env:release", :nr_nuget_push]
-
 desc "publishes (pushes) the nuget package 'NLog.Targets.RabbitMQ'"
 nugetpush :nr_nuget_push do |nuget|
   nuget.command = "#{COMMANDS[:nuget]}"
@@ -89,3 +87,37 @@ nugetpush :nr_nuget_push do |nuget|
 end
 
 task :default  => ["env:release", "assemblyinfo", "msbuild", "output", "nugets"]
+
+desc "publish nugets! (doesn't build)"
+task :publish => [:"env:release", :nr_nuget_push]
+
+task :verify do
+  changed_files = `git diff --cached --name-only`.split("\n") + `git diff --name-only`.split("\n")
+  if !(changed_files == [".semver", "Rakefile.rb"] or 
+    changed_files == ["Rakefile.rb"] or 
+	changed_files == [".semver"] or
+    changed_files.empty?)
+    raise "Repository contains uncommitted changes; either commit or stash."
+  end
+end
+
+task :versioning do 
+  v = SemVer.find
+  if `git tag`.split("\n").include?("#{v.to_s}")
+    raise "Version #{v.to_s} has already been released! You cannot release it twice."
+  end
+  puts 'committing'
+  `git commit -am "Released version #{v.to_s}"` 
+  puts 'tagging'
+  `git tag #{v.to_s}`
+  puts 'pushing'
+  `git push`
+  `git push --tags`
+  
+  puts "now merge into master and then back into develop!!!"
+end
+
+desc "full chamboom!!!!"
+task :release => [:verify, :default, :versioning, :publish] do
+  puts 'done'
+end
