@@ -8,8 +8,11 @@ using RabbitMQ.Client.Framing.v0_9_1;
 
 namespace NLog.Targets
 {
+	/// <summary>
+	/// A RabbitMQ-target for NLog.
+	/// </summary>
 	[Target("RabbitMQ")]
-	public class RabbitMQ : Target
+	public class RabbitMQ : TargetWithLayout
 	{
 		private IConnection _Connection;
 		private IModel _Model;
@@ -221,7 +224,7 @@ namespace NLog.Targets
 
 		private byte[] GetMessage(AsyncLogEventInfo logEvent)
 		{
-			return _Encoding.GetBytes(logEvent.LogEvent.FormattedMessage);
+			return _Encoding.GetBytes(Layout.Render(logEvent.LogEvent));
 		}
 
 
@@ -245,6 +248,8 @@ namespace NLog.Targets
 
 		protected override void InitializeTarget()
 		{
+			base.InitializeTarget();
+
 			StartConnection();
 		}
 
