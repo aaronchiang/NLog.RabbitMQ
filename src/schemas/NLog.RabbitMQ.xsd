@@ -1,0 +1,79 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<schema id="NLog.RabbitMQ"
+		   targetNamespace="https://github.com/haf/NLog.RabbitMQ/tree/master/src/schemas/NLog.RabbitMQ.xsd"
+		   xmlns="http://www.w3.org/2001/XMLSchema" 
+		   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		   xmlns:mstns="https://github.com/haf/NLog.RabbitMQ/tree/master/src/schemas/NLog.RabbitMQ.xsd"
+		   xmlns:nlog="http://www.nlog-project.org/schemas/NLog.xsd"
+		   elementFormDefault="qualified">
+	<import namespace="http://www.nlog-project.org/schemas/NLog.xsd" />
+	<complexType name="RabbitMQ">
+		<annotation>
+			<documentation>
+				The RabbitMQ target pushes log messages to a RabbitMQ instance. It's maintained
+				outside of the main NLog project at https://github.com/haf/NLog.RabbitMQ. Please
+				report any problems to this address.
+			</documentation>
+		</annotation>
+		 <complexContent>
+			 <extension base="nlog:Target">
+				 <choice minOccurs="0" maxOccurs="unbounded">
+					<element name="name" type="string" minOccurs="0" maxOccurs="1" />
+					<element name="username" type="string" minOccurs="0" maxOccurs="1" />
+					<element name="password" type="string" minOccurs="0" maxOccurs="1" />
+					<element name="hostname" type="string" minOccurs="0" maxOccurs="1" />
+					<element name="exchange" type="string" minOccurs="0" maxOccurs="1"/>
+					<element name="port" type="unsignedShort" minOccurs="0" maxOccurs="1" />
+					<element name="topic" type="string" minOccurs="0" maxOccurs="1" />
+					<element name="vhost" type="string" minOccurs="0" maxOccurs="1" />
+					<element name="appid" type="string" minOccurs="0" maxOccurs="1" />
+				</choice>
+				 <attribute name="name" type="string">
+					 <annotation>
+						<documentation>Name of the target.</documentation>
+					</annotation>
+				</attribute>
+				 <attribute name="username" type="string" default="guest">
+					 <annotation>
+						 <documentation>The username to use for authentication with the message broker. The default is 'guest'.</documentation>
+					</annotation>
+				</attribute>
+				 <attribute name="password" type="string" default="guest">
+					 <annotation>
+						<documentation>The password to use for authentication with the message broker. The default is 'guest'.</documentation>
+					</annotation>
+				</attribute>
+				 <attribute name="hostname" type="string" default="localhost">
+					 <annotation>
+						<documentation>The host name of the broker to log to. The default is 'localhost'</documentation>
+					</annotation>
+				</attribute>
+				 <attribute name="exchange" type="string" default="app-logging">
+					 <annotation>
+						<documentation>The exchange to bind the logger output to.</documentation>
+					</annotation>
+				</attribute>
+				 <attribute name="port" type="unsignedShort" default="5672">
+					 <annotation>
+						<documentation>The port to connect using. The default is '5672'.</documentation>
+					</annotation>
+				</attribute>
+				 <attribute name="topic" type="string" default="{0}">
+					 <annotation>
+						<documentation>The routing key (aka. topic) with which to send messages. Defaults to {0}, which in the end is 'error' for log.Error("..."), and so on. An example could be setting this property to 'ApplicationType.MyApp.Web.{0}'. The default is '{0}'.</documentation>
+					</annotation>
+				</attribute>
+				 <attribute name="vhost" type="string" default="/">
+					 <annotation>
+						<documentation>Use default row highlighting rules. Default value is: true</documentation>
+					</annotation>
+				</attribute>
+				 <attribute name="appid" type="string">
+					 <annotation>
+						<documentation>The application id to specify when sending. Defaults to null, and then IBasicProperties.AppId will be the name of the logger instead.</documentation>
+					</annotation>
+				</attribute>
+			</extension>
+		</complexContent>
+	</complexType>
+</schema>

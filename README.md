@@ -16,7 +16,7 @@
 	</extensions>
 
 	<targets>
-		<target name="rmq" type="RabbitMQ" 
+		<target name="rmq" xsi:type="RabbitMQ" 
 				username="guest" 
 				password="guest" 
 				hostname="localhost" 
@@ -29,7 +29,7 @@
 	</targets>
 
 	<rules>
-		<logger name="*" minLevel="Trace" appendTo="rmq"/>
+		<logger name="*" minlevel="Trace" writeTo="rmq"/>
 	</rules>
 
 </nlog>
