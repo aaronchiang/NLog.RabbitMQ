@@ -42,5 +42,6 @@ COMMANDS = {
 
 URIS = {
   :nuget_offical => "http://packages.nuget.org/v1/",
-  :nuget_symbolsource => "http://nuget.gw.symbolsource.org/Public/Nuget"
+  :nuget_symbolsource => "http://nuget.gw.symbolsource.org/Public/Nuget",
+  :local => "http://teamcity:8080/"
 }
