@@ -132,7 +132,17 @@ namespace NLog.Targets
 		/// </summary>
 		public string AppId { get; set; }
 
-		public 
+		private int _MaxBuffer = 10240;
+
+		/// <summary>
+		/// Gets or sets the maximum number of messages to save in the case
+		/// that the RabbitMQ instance goes down. Must be >= 1. Defaults to 10240.
+		/// </summary>
+		public int MaxBuffer
+		{
+			get { return _MaxBuffer; }
+			set { if (value > 0) _MaxBuffer = value; }
+		}
 
 		#endregion
 
@@ -147,7 +157,7 @@ namespace NLog.Targets
 
 			if (_Model == null)
 			{
-				_UnsentMessages.Add(Tuple.Create(message, basicProperties, routingKey));
+				AddUnsent(routingKey, basicProperties, message);
 				return;
 			}
 
@@ -159,9 +169,17 @@ namespace NLog.Targets
 			catch (IOException e)
 			{
 				InternalLogger.Error("Could not send to RabbitMQ instance! {0}", e.ToString());
-				_UnsentMessages.Add(Tuple.Create(message, basicProperties, routingKey));
+				AddUnsent(routingKey, basicProperties, message);
 				ShutdownAmqp(_Connection, new ShutdownEventArgs(ShutdownInitiator.Application, Constants.ChannelError, "Could not talk to RabbitMQ instance"));
 			}
+		}
+
+		private void AddUnsent(string routingKey, IBasicProperties basicProperties, byte[] message)
+		{
+			if (_UnsentMessages.Count < _MaxBuffer)
+				_UnsentMessages.Add(Tuple.Create(message, basicProperties, routingKey));
+			else
+				InternalLogger.Warn("MaxBuffer {0} filled. Ignoring message.", _MaxBuffer);
 		}
 
 		private void CheckUnsent()
