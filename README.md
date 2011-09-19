@@ -7,7 +7,7 @@ The RabbitMQ target writes asynchronously to a RabbitMQ instance.
 ```xml
 <?xml version="1.0" encoding="utf-8" ?>
 <nlog xmlns="http://www.nlog-project.org/schemas/NLog.xsd"
-	  xmlns:haf="https://github.com/haf/NLog.RabbitMQ/tree/master/src/schemas/NLog.RabbitMQ.xsd"
+	  xmlns:haf="https://github.com/haf/NLog.RabbitMQ/raw/master/src/schemas/NLog.RabbitMQ.xsd"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	  internalLogToConsole="true">
 
