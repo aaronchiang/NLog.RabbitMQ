@@ -27,6 +27,7 @@
 					<element name="topic" type="string" minOccurs="0" maxOccurs="1" />
 					<element name="vhost" type="string" minOccurs="0" maxOccurs="1" />
 					<element name="appid" type="string" minOccurs="0" maxOccurs="1" />
+					<element name="maxBuffer" type="integer" minOccurs="0" maxOccurs="1" />
 				</choice>
 				 <attribute name="name" type="string">
 					 <annotation>
@@ -71,6 +72,11 @@
 				 <attribute name="appid" type="string">
 					 <annotation>
 						<documentation>The application id to specify when sending. Defaults to null, and then IBasicProperties.AppId will be the name of the logger instead.</documentation>
+					</annotation>
+				</attribute>
+				 <attribute name="maxBuffer" type="integer" default="10240">
+					 <annotation>
+						<documentation>The number of log messages to save if the RabbitMQ instance goes down. Defaults to 10240 messages.</documentation>
 					</annotation>
 				</attribute>
 			</extension>

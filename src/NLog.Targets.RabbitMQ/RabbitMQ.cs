@@ -132,6 +132,8 @@ namespace NLog.Targets
 		/// </summary>
 		public string AppId { get; set; }
 
+		public 
+
 		#endregion
 
 		protected override void Write(AsyncLogEventInfo logEvent)
