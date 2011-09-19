@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Text;
 using NLog.Common;
 using RabbitMQ.Client;
@@ -8,8 +9,11 @@ using RabbitMQ.Client.Framing.v0_9_1;
 
 namespace NLog.Targets
 {
+	/// <summary>
+	/// A RabbitMQ-target for NLog.
+	/// </summary>
 	[Target("RabbitMQ")]
-	public class RabbitMQ : Target
+	public class RabbitMQ : TargetWithLayout
 	{
 		private IConnection _Connection;
 		private IModel _Model;
@@ -221,7 +225,7 @@ namespace NLog.Targets
 
 		private byte[] GetMessage(AsyncLogEventInfo logEvent)
 		{
-			return _Encoding.GetBytes(logEvent.LogEvent.FormattedMessage);
+			return _Encoding.GetBytes(Layout.Render(logEvent.LogEvent));
 		}
 
 
@@ -245,12 +249,15 @@ namespace NLog.Targets
 
 		protected override void InitializeTarget()
 		{
+			base.InitializeTarget();
+
 			StartConnection();
 		}
 
 		/// <summary>
 		/// Never throws
 		/// </summary>
+		[MethodImpl(MethodImplOptions.Synchronized)]
 		private void StartConnection()
 		{
 			try
@@ -286,17 +293,21 @@ namespace NLog.Targets
 			};
 		}
 
+		[MethodImpl(MethodImplOptions.Synchronized)]
 		private void ShutdownAmqp(IConnection connection, ShutdownEventArgs reason)
 		{
-			try
-			{
-				if (_Model != null && _Model.IsOpen)
-					_Model.Close();
-			}
-			catch (Exception e)
-			{
-				InternalLogger.Error("could not close model", e);
-			}
+			// I can't make this NOT hang when RMQ goes down
+			// and then a log message is sent...
+
+			//try
+			//{
+			//    if (_Model != null && _Model.IsOpen)
+			//        _Model.Abort(); //_Model.Close();
+			//}
+			//catch (Exception e)
+			//{
+			//    InternalLogger.Error("could not close model", e);
+			//}
 
 			try
 			{

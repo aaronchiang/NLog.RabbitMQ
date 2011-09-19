@@ -1,6 +1,8 @@
 # RabbitMQ target for NLog
 
-**Configuration**:
+The RabbitMQ target writes asynchronously to a RabbitMQ instance.
+
+##Configuration:
 
 ```xml
 <?xml version="1.0" encoding="utf-8" ?>
@@ -14,7 +16,9 @@
 	</extensions>
 
 	<targets>
-		<!-- when http://nlog.codeplex.com/workitem/6491 is fixed, then xsi:type="haf:RabbitMQ" instead -->
+		<!-- when http://nlog.codeplex.com/workitem/6491 is fixed, then xsi:type="haf:RabbitMQ" instead;
+			 these are the defaults (except 'topic' and 'appid'): 
+		-->
 		<target name="RabbitMQTarget"
 				xsi:type="RabbitMQ"
 				username="guest" 
@@ -25,8 +29,9 @@
 				topic="DemoApp.Logging.{0}"
 				vhost="/"
 				appid="NLog.RabbitMQ.DemoApp"
-				maxBuffer="2"
+				maxBuffer="10240"
 				heartBeatSeconds="3"
+				layout="${longdate}|${level:uppercase=true}|${logger}|${message}"
 				/>
 	</targets>
 
@@ -37,7 +42,16 @@
 </nlog>
 ```
 
-**Important - shutting it down!**
+**Recommendation - async wrapper target**
+
+Make the targets tag look like this: `<targets async="true"> ... </targets>` so that
+a failure of communication with RabbitMQ doesn't slow the application down. With this configuration
+an overloaded message broker will have 10000 messages buffered in the logging application
+before messages start being discarded. A downed message broker will have its messages
+in the *inner* target (i.e. RabbitMQ-target), not in the async buffer (as the RabbitMQ-target
+will not block which is what AsyncWrapperTarget buffers upon).
+
+##Important - shutting it down!
 
 Because NLog doesn't expose a single method for shutting everything down (but loads automatically by static properties - the loggers' first invocation to the framework) - you need to add this code to the exit of your application!
 
@@ -50,6 +64,6 @@ foreach (var target in allTargets)
 
 For an example of how to do this with WPF see the demo.
 
-**Configuration schema**
+##Configuration schema
 
 See https://github.com/haf/NLog.RabbitMQ/blob/master/src/schemas/NLog.RabbitMQ.xsd
