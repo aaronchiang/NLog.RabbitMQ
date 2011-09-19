@@ -144,6 +144,20 @@ namespace NLog.Targets
 			set { if (value > 0) _MaxBuffer = value; }
 		}
 
+		private ushort _heartBeatSeconds = 3;
+
+		/// <summary>
+		/// Gets or sets the number of heartbeat seconds to have for the RabbitMQ connection.
+		/// If the heartbeat times out, then the connection is closed (logically) and then
+		/// re-opened the next time a log message comes along.
+		/// </summary>
+		public ushort HeartBeatSeconds
+		{
+			get { return _heartBeatSeconds; }
+			set {  _heartBeatSeconds = value; }
+		}
+
+
 		#endregion
 
 		protected override void Write(AsyncLogEventInfo logEvent)
@@ -152,10 +166,10 @@ namespace NLog.Targets
 			var message = GetMessage(logEvent);
 			var routingKey = string.Format(_Topic, logEvent.LogEvent.Level.Name);
 
-			if (_Model == null)
+			if (_Model == null || !_Model.IsOpen)
 				StartConnection();
 
-			if (_Model == null)
+			if (_Model == null || !_Model.IsOpen)
 			{
 				AddUnsent(routingKey, basicProperties, message);
 				return;
@@ -267,43 +281,46 @@ namespace NLog.Targets
 				VirtualHost = VHost,
 				UserName = UserName,
 				Password = Password,
-				RequestedHeartbeat = 60,
+				RequestedHeartbeat = HeartBeatSeconds,
 				Port = Port
 			};
 		}
-
 
 		private void ShutdownAmqp(IConnection connection, ShutdownEventArgs reason)
 		{
 			try
 			{
-				if (connection != null)
-				{
-					connection.ConnectionShutdown -= ShutdownAmqp;
-					connection.AutoClose = true;
-				}
-
-				if (_Model != null)
-				{
-					_Model.Close(Constants.ReplySuccess, "closing rabbitmq appender, shutting down logging");
-					_Model.Dispose();
-				}
+				if (_Model != null && _Model.IsOpen)
+					_Model.Close();
 			}
 			catch (Exception e)
 			{
 				InternalLogger.Error("could not close model", e);
 			}
 
-			_Connection = null;
-			_Model = null;
+			try
+			{
+				if (connection != null && connection.IsOpen)
+				{
+					connection.ConnectionShutdown -= ShutdownAmqp;
+					connection.Close(reason.ReplyCode, reason.ReplyText, 1000);
+					connection.Abort(1000); // you get 2 seconds to shut down!
+				}
+			}
+			catch (Exception e)
+			{
+				InternalLogger.Error("could not close connection", e);
+			}
 		}
+
+		// Dispose calls CloseTarget!
 
 		protected override void CloseTarget()
 		{
-			base.CloseTarget();
-
 			ShutdownAmqp(_Connection,
-						 new ShutdownEventArgs(ShutdownInitiator.Application, Constants.ReplySuccess, "closing appender"));
+			             new ShutdownEventArgs(ShutdownInitiator.Application, Constants.ReplySuccess, "closing appender"));
+			
+			base.CloseTarget();
 		}
 	}
 }

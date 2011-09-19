@@ -5,6 +5,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NLog.Targets.RabbitMQ", "NL
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Docs", "Docs", "{F52C00A3-410F-42E9-8CA3-08E36A0A2FA2}"
 	ProjectSection(SolutionItems) = preProject
+		schemas\NLog.RabbitMQ.xsd = schemas\NLog.RabbitMQ.xsd
 		..\Rakefile.rb = ..\Rakefile.rb
 		..\README.md = ..\README.md
 	EndProjectSection
