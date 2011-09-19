@@ -49,3 +49,7 @@ foreach (var target in allTargets)
 ```
 
 For an example of how to do this with WPF see the demo.
+
+**Configuration schema**
+
+See https://github.com/haf/NLog.RabbitMQ/blob/master/src/schemas/NLog.RabbitMQ.xsd
