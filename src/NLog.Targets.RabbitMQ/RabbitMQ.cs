@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Text;
 using NLog.Common;
 using RabbitMQ.Client;
@@ -256,6 +257,7 @@ namespace NLog.Targets
 		/// <summary>
 		/// Never throws
 		/// </summary>
+		[MethodImpl(MethodImplOptions.Synchronized)]
 		private void StartConnection()
 		{
 			try
@@ -291,17 +293,21 @@ namespace NLog.Targets
 			};
 		}
 
+		[MethodImpl(MethodImplOptions.Synchronized)]
 		private void ShutdownAmqp(IConnection connection, ShutdownEventArgs reason)
 		{
-			try
-			{
-				if (_Model != null && _Model.IsOpen)
-					_Model.Close();
-			}
-			catch (Exception e)
-			{
-				InternalLogger.Error("could not close model", e);
-			}
+			// I can't make this NOT hang when RMQ goes down
+			// and then a log message is sent...
+
+			//try
+			//{
+			//    if (_Model != null && _Model.IsOpen)
+			//        _Model.Abort(); //_Model.Close();
+			//}
+			//catch (Exception e)
+			//{
+			//    InternalLogger.Error("could not close model", e);
+			//}
 
 			try
 			{
