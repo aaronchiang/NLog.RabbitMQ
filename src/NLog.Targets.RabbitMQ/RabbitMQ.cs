@@ -19,8 +19,8 @@ namespace NLog.Targets
 		private IModel _Model;
 		private readonly Encoding _Encoding = Encoding.UTF8;
 		private readonly DateTime _Epoch = new DateTime(1970, 1, 1, 0, 0, 0, 0);
-		private readonly List<Tuple<byte[], IBasicProperties, string>> _UnsentMessages
-			= new List<Tuple<byte[], IBasicProperties, string>>(512);
+		private readonly Queue<Tuple<byte[], IBasicProperties, string>> _UnsentMessages
+			= new Queue<Tuple<byte[], IBasicProperties, string>>(512);
 
 		#region Properties
 
@@ -183,36 +183,40 @@ namespace NLog.Targets
 			{
 				CheckUnsent();
 				Publish(message, basicProperties, routingKey);
+				return;
 			}
 			catch (IOException e)
 			{
 				InternalLogger.Error("Could not send to RabbitMQ instance! {0}", e.ToString());
-				AddUnsent(routingKey, basicProperties, message);
-				ShutdownAmqp(_Connection, new ShutdownEventArgs(ShutdownInitiator.Application, Constants.ChannelError, "Could not talk to RabbitMQ instance"));
 			}
+			catch (ObjectDisposedException e)
+			{
+				InternalLogger.Error("Could not write data to the network stream! {0}", e.ToString());
+			}
+
+			AddUnsent(routingKey, basicProperties, message);
+			ShutdownAmqp(_Connection, new ShutdownEventArgs(ShutdownInitiator.Application,
+				Constants.ChannelError, "Could not talk to RabbitMQ instance"));
+
 		}
 
 		private void AddUnsent(string routingKey, IBasicProperties basicProperties, byte[] message)
 		{
 			if (_UnsentMessages.Count < _MaxBuffer)
-				_UnsentMessages.Add(Tuple.Create(message, basicProperties, routingKey));
+				_UnsentMessages.Enqueue(Tuple.Create(message, basicProperties, routingKey));
 			else
 				InternalLogger.Warn("MaxBuffer {0} filled. Ignoring message.", _MaxBuffer);
 		}
 
 		private void CheckUnsent()
 		{
-			var count = _UnsentMessages.Count;
-
-			for (var i = 0; i < count; i++)
+			// using a queue so that removing and publishing is a single operation
+			while (_UnsentMessages.Count > 0)
 			{
-				var tuple = _UnsentMessages[i];
+				var tuple = _UnsentMessages.Dequeue();
 				InternalLogger.Info("publishing unsent message: {0}.", tuple);
 				Publish(tuple.Item1, tuple.Item2, tuple.Item3);
 			}
-
-			if (count > 0) 
-				_UnsentMessages.Clear();
 		}
 
 		private void Publish(byte[] bytes, IBasicProperties basicProperties, string routingKey)
@@ -299,15 +303,17 @@ namespace NLog.Targets
 			// I can't make this NOT hang when RMQ goes down
 			// and then a log message is sent...
 
-			//try
-			//{
-			//    if (_Model != null && _Model.IsOpen)
-			//        _Model.Abort(); //_Model.Close();
-			//}
-			//catch (Exception e)
-			//{
-			//    InternalLogger.Error("could not close model", e);
-			//}
+			try
+			{
+				if (_Model != null && _Model.IsOpen 
+					&& reason.ReplyCode != Constants.ChannelError
+					&& reason.ReplyCode != Constants.ConnectionForced)
+					_Model.Abort(); //_Model.Close();
+			}
+			catch (Exception e)
+			{
+				InternalLogger.Error("could not close model", e);
+			}
 
 			try
 			{
