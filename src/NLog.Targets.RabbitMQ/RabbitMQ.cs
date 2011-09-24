@@ -10,7 +10,7 @@ using RabbitMQ.Client.Framing.v0_9_1;
 namespace NLog.Targets
 {
 	/// <summary>
-	/// A RabbitMQ-target for NLog.
+	/// A RabbitMQ-target for NLog. See https://github.com/haf/NLog.RabbitMQ for documentation in Readme.md.
 	/// </summary>
 	[Target("RabbitMQ")]
 	public class RabbitMQ : TargetWithLayout
